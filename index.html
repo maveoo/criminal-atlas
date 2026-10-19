@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кримінальний Атлас України</title>
+    
+    <!-- Підключаємо Leaflet та Heatmap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Підключаємо шрифти Google Fonts для детективної естетики -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+
+    <!-- Підключаємо базу даних -->
+    <script src="map.js"></script>
+
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #f4ebd8;
+            background-image: radial-gradient(#d7cbb3 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #333;
+        }
+
+        /* 1. ОНОВЛЕНА ШАПКА В СТИЛІ КОНЦЕПТУ */
+        #main-header-wrapper {
+            background-color: transparent;
+            padding: 50px 20px 30px 20px;
+            text-align: center;
+        }
+        #main-header-title {
+            font-family: 'Cinzel', serif;
+            font-size: 46px;
+            color: #2b1d16;
+            margin: 0;
+            letter-spacing: 2px;
+        }
+        #main-header-subtitle {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 24px;
+            color: #2b1d16;
+            margin: 10px 0 0 0;
+        }
+
+        /* 2. ТЕМНА НАВІГАЦІЙНА ПАНЕЛЬ */
+        #dark-nav-bar {
+            background-color: #2b1d16;
+            color: #f4ebd8;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border-top: 1px solid #4a3429;
+            border-bottom: 1px solid #4a3429;
+            margin-bottom: 30px;
+        }
+        
+        .nav-item-group {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .filter-label { 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-family: 'Playfair Display', serif;
+            font-weight: 500; 
+            font-size: 16px;
+            color: #d7cbb3;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: color 0.2s;
+        }
+        .filter-label:hover { color: #fff; }
+        
+        .filter-cb { 
+            accent-color: #7b2c24; 
+            width: 14px; 
+            height: 14px; 
+            cursor: pointer; 
+        }
+
+        #toggle-heatmap {
+            background-color: transparent;
+            color: #d7cbb3;
+            border: 1px solid #d7cbb3;
+            border-radius: 2px;
+            padding: 6px 15px;
+            font-family: 'Playfair Display', serif;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #toggle-heatmap:hover {
+            background-color: #d7cbb3;
+            color: #2b1d16;
+        }
+
+        #stats-counter {
+            font-family: 'Courier New', monospace;
+            font-size: 12px; 
+            color: #9C623E; 
+            margin-left: auto;
+        }
+
+        /* 3. КАРТА ТА ЖУРНАЛ */
+        #map {
+            width: 90%; max-width: 1000px; height: 450px;
+            margin: 15px auto 40px auto;
+            border: 4px solid #3e2723; border-radius: 4px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .popup-btn {
+            display: block; width: 100%; margin-top: 12px; padding: 8px 0;
+            background-color: #633F33; color: #f4ebd8; border: none; border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 13px;
+            cursor: pointer; text-transform: uppercase; transition: background 0.2s;
+        }
+        .popup-btn:hover { background-color: #3e2723; }
+
+        #journal-section { padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .journal-title {
+            text-align: center; font-family: 'Cinzel', serif; font-size: 32px; font-weight: bold; 
+            letter-spacing: 2px; margin-bottom: 40px; color: #3e2723;
+            border-bottom: 2px dashed #633F33; padding-bottom: 15px;
+        }
+        
+        #cases-container { display: flex; flex-direction: column; gap: 40px; }
+        
+        .case-card {
+            background-color: #faf5eb; border: 1px solid #d7cbb3; border-left: 6px solid #633F33;
+            padding: 20px; display: flex; gap: 25px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05); scroll-margin-top: 40px;
+        }
+        
+        .carousel-container {
+            width: 320px; flex-shrink: 0;
+            background: #e9e0ce; border: 1px solid #d7cbb3; border-radius: 4px;
+            position: relative; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 1px 1px 5px rgba(0,0,0,0.15);
+        }
+        .carousel-slide { display: none; flex-direction: column; height: 100%; }
+        .carousel-slide.active { display: flex; }
+        .carousel-photo { width: 100%; height: 220px; object-fit: cover; filter: grayscale(15%) contrast(110%); }
+        .carousel-text { padding: 12px; font-size: 13px; font-style: italic; text-align: justify; color: #3e2723; flex-grow: 1; border-top: 1px dashed #d7cbb3; }
+        .carousel-btn { position: absolute; top: 95px; background: rgba(43, 29, 22, 0.85); color: #d7cbb3; border: none; padding: 6px 12px; cursor: pointer; font-weight: bold; border-radius: 2px; }
+        .carousel-btn.prev { left: 5px; }
+        .carousel-btn.next { right: 5px; }
+        .carousel-btn:hover { background: #1a110d; color: #fff;}
+
+        .case-text-wrapper { flex-grow: 1; }
+        .case-text-wrapper h3 { font-family: 'Cinzel', serif; margin: 0 0 10px 0; color: #3e2723; font-size: 22px; }
+        .case-meta { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 15px; color: #7b2c24; margin-bottom: 15px; border-bottom: 1px dashed #d7cbb3; padding-bottom: 8px; }
+        .case-description { line-height: 1.5; text-align: justify; }
+		
+		/* === АДАПТИВНІСТЬ ДЛЯ ПЛАНШЕТІВ ТА ТЕЛЕФОНІВ === */
+        @media (max-width: 768px) {
+            /* Зменшуємо шрифти в шапці */
+            #main-header-wrapper { padding: 30px 15px 20px 15px; }
+            #main-header-title { font-size: 28px; }
+            #main-header-subtitle { font-size: 16px; }
+            
+            /* Складаємо темну панель навігації в колонку */
+            #dark-nav-bar { flex-direction: column; gap: 15px; padding: 15px; text-align: center; }
+            .nav-item-group { flex-wrap: wrap; justify-content: center; gap: 15px; }
+            #stats-counter { margin-left: 0; margin-top: 5px; }
+            
+            /* Робимо карту трохи нижчою для зручного скролінгу */
+            #map { height: 350px; margin-top: 0; }
+            
+            /* Перемикаємо картку з горизонтальної на вертикальну */
+            .case-card { flex-direction: column; padding: 15px; gap: 15px; }
+            
+            /* Карусель тепер розтягується на всю ширину екрана */
+            .carousel-container { width: 100%; }
+            .carousel-photo { height: auto; max-height: 250px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ОНОВЛЕНА ШАПКА В СТИЛІ КОНЦЕПТУ -->
+    <div id="main-header-wrapper">
+        <h1 id="main-header-title">Кримінальний Атлас України</h1>
+        <p id="main-header-subtitle">Аналіз просторового розподілу резонансних справ</p>
+    </div>
+
+    <!-- ТЕМНА НАВІГАЦІЙНА ПАНЕЛЬ З ФІЛЬТРАМИ -->
+    <div id="dark-nav-bar">
+        <div class="nav-item-group">
+            <span style="font-family: 'Cinzel', serif; color: #fff; letter-spacing: 2px; font-size: 14px; margin-right: 10px;">ФІЛЬТРИ:</span>
+            <label class="filter-label"><input type="checkbox" class="filter-cb" value="мистецтв" checked> Мистецтво</label>
+            <label class="filter-label"><input type="checkbox" class="filter-cb" value="афер" checked> Афери</label>
+            <label class="filter-label"><input type="checkbox" class="filter-cb" value="вбивств" checked> Вбивства</label>
+            <label class="filter-label"><input type="checkbox" class="filter-cb" value="спадщин" checked> Спадщина</label>
+        </div>
+        
+        <button id="toggle-heatmap">Увімкнути Heatmap</button>
+        
+        <!-- ЛІЧИЛЬНИК -->
+        <div id="stats-counter">
+            Показано: <span id="case-count" style="color:#fff;">0</span> / <span id="total-count">0</span>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="journal-section">
+        <div class="journal-title">Журнал справ</div>
+        <div id="cases-container"></div>
+    </div>
+
+    <script>
+        var map = L.map('map').setView([48.3794, 31.1656], 6);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri', maxZoom: 18
+        }).addTo(map);
+
+        var customPinIcon = L.icon({ 
+    iconUrl: 'pin.png', 
+    iconSize: [38, 60],     // Новий розмір (ширина 38px, висота 60px)
+    iconAnchor: [19, 60],   // Центруємо гострячок (половина ширини, повна висота)
+    popupAnchor: [0, -55]   // Піднімаємо спливаюче вікно вище над шпилькою
+});
+        var markersLayer;
+        
+        var isHeatmapActive = false;
+        var heatLayer; 
+
+        function moveSlide(carouselId, direction) {
+            var container = document.getElementById(carouselId);
+            var slides = container.querySelectorAll('.carousel-slide');
+            if (slides.length === 0) return;
+
+            var currentIndex = 0;
+            slides.forEach(function(slide, idx) {
+                if (slide.classList.contains('active')) {
+                    currentIndex = idx;
+                    slide.classList.remove('active');
+                }
+            });
+
+            var nextIndex = (currentIndex + direction + slides.length) % slides.length;
+            slides[nextIndex].classList.add('active');
+        }
+
+        function updateMapAndJournal() {
+            var activeFilters = [];
+            document.querySelectorAll('.filter-cb:checked').forEach(function(cb) { activeFilters.push(cb.value); });
+
+            if (markersLayer) map.removeLayer(markersLayer);
+            if (heatLayer) map.removeLayer(heatLayer);
+            
+            var heatPoints = []; 
+            var visibleCount = 0; 
+
+            markersLayer = L.geoJSON(criminalData, {
+                filter: function(feature) {
+                    var cat = feature.properties.Category ? feature.properties.Category.toLowerCase() : '';
+                    var isVisible = activeFilters.some(function(val) { return cat.includes(val); });
+                    
+                    if (isVisible && isHeatmapActive) {
+                       heatPoints.push([feature.geometry.coordinates[1], feature.geometry.coordinates[0], 1]);
+                    }
+                    return isVisible && !isHeatmapActive; 
+                },
+                pointToLayer: function (feature, latlng) { return L.marker(latlng, {icon: customPinIcon}); },
+                onEachFeature: function (feature, layer) {
+                    var index = criminalData.features.indexOf(feature);
+                    var props = feature.properties;
+                    var popupContent = "<div style='font-family: Courier New, monospace; color: #333; font-size: 12px;'>";
+                    popupContent += "<h4 style='font-family: \"Cinzel\", serif; margin: 0 0 5px 0; font-size: 14px;'> " + props.Title + "</h4>";
+                    popupContent += "<b style='font-family: \"Playfair Display\", serif;'>Категорія:</b> " + props.Category + "<br><hr style='border-top: 1px dashed #ccc; margin: 6px 0;'>";
+                    popupContent += `<button class='popup-btn' onclick="document.getElementById('case-${index}').scrollIntoView({behavior: 'smooth'});">Деталі справи ↓</button>`;
+                    popupContent += "</div>";
+                    layer.bindPopup(popupContent, {maxWidth: 240, minWidth: 200}); 
+                }
+            });
+
+            if (isHeatmapActive && heatPoints.length > 0) {
+                heatLayer = L.heatLayer(heatPoints, {
+                    radius: 30, blur: 15, maxZoom: 10, minOpacity: 0.5, 
+                    gradient: { 0.2: '#7f9c76', 0.5: '#d4b86a', 0.8: '#b85e33', 1.0: '#5c1e14' } 
+                }).addTo(map);
+            } else if (!isHeatmapActive) {
+                 markersLayer.addTo(map);
+            }
+
+            var container = document.getElementById('cases-container');
+            var htmlContent = '';
+
+            criminalData.features.forEach(function(feature) {
+                var index = criminalData.features.indexOf(feature);
+                var props = feature.properties;
+                var cat = props.Category ? props.Category.toLowerCase() : '';
+                
+                if (activeFilters.some(function(val) { return cat.includes(val); })) {
+                    visibleCount++; 
+                    
+                    var slidesHtml = '';
+                    var slideCount = 0;
+                    
+                    for (var i = 1; i <= 3; i++) {
+                        var imgSrc = props['Slide_' + i + '_Img'] || props['Slide ' + i + ' Img'];
+                        var text = props['Slide_' + i + '_Text'] || props['Slide ' + i + ' Text'];
+                        
+                        if (imgSrc || text) {
+                            var activeClass = slideCount === 0 ? 'active' : '';
+                            
+                            var imgHtml = imgSrc 
+                                ? `<img src="${imgSrc}" class="carousel-photo" alt="Матеріали справи ${i}">` 
+                                : `<div class="carousel-photo" style="display:flex; align-items:center; justify-content:center; background:#d7cbb3; color:#7b2c24; font-weight:bold; font-size:16px; text-align:center; border-bottom: 1px solid #c2b59b;">ФОТО<br>ВІДСУТНЄ</div>`;
+                                
+                            var textHtml = text ? `<div class="carousel-text">${text}</div>` : '';
+                            
+                            slidesHtml += `
+                                <div class="carousel-slide ${activeClass}">
+                                    ${imgHtml}
+                                    ${textHtml}
+                                </div>`;
+                            slideCount++;
+                        }
+                    }
+
+                    var carouselHtml = '';
+                    if (slideCount > 0) {
+                        var btnsHtml = slideCount > 1 ? `
+                            <button class="carousel-btn prev" onclick="moveSlide('carousel-${index}', -1)">&#10094;</button>
+                            <button class="carousel-btn next" onclick="moveSlide('carousel-${index}', 1)">&#10095;</button>
+                        ` : '';
+                        carouselHtml = `<div class="carousel-container" id="carousel-${index}">${slidesHtml}${btnsHtml}</div>`;
+                    } else {
+                        carouselHtml = `
+                        <div class="carousel-container" style="display:flex; align-items:center; justify-content:center; background:#e9e0ce;">
+                            <div style="color: #7b2c24; font-weight: bold; font-size: 15px; border: 3px solid #7b2c24; padding: 20px; border-radius: 4px; text-align:center; line-height:1.5; transform: rotate(-5deg); opacity: 0.8;">
+                                МАТЕРІАЛИ<br>ЗАСЕКРЕЧЕНО<br>АБО ВІДСУТНІ
+                            </div>
+                        </div>`;
+                    }
+
+                    htmlContent += `
+                        <div class="case-card" id="case-${index}">
+                            ${carouselHtml}
+                            <div class="case-text-wrapper">
+                                <h3>Справа №${index + 1}: ${props.Title}</h3>
+                                <div class="case-meta">Категорія: ${props.Category} | Рік: ${props.Year}</div>
+                                <div class="case-description">${props.Main_Text}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            container.innerHTML = htmlContent;
+
+            // Оновлюємо лічильник
+            document.getElementById('case-count').innerText = visibleCount;
+            document.getElementById('total-count').innerText = criminalData.features.length;
+        }
+
+        document.getElementById('toggle-heatmap').addEventListener('click', function() {
+            isHeatmapActive = !isHeatmapActive; 
+            this.textContent = isHeatmapActive ? 'Вимкнути Heatmap' : 'Увімкнути Heatmap'; 
+            updateMapAndJournal(); 
+        });
+
+        document.querySelectorAll('.filter-cb').forEach(function(cb) { cb.addEventListener('change', updateMapAndJournal); });
+        updateMapAndJournal();
+    </script>
+</body>
+</html>
